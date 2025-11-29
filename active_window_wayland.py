@@ -1,44 +1,40 @@
-#!/usr/bin/env python3
-"""
-active_window_wayland.py
+from pydbus import SessionBus
+import json
+import time
 
-Small stub utility to detect/print the active window on Wayland compositors.
-This file is a starting point — Wayland active-window detection depends on the
-compositor (sway, wlroots-based, GNOME/wayland, KDE/Wayland) and available
-APIs (sway IPC, xdg-activation, libwayland).
-
-Instructions:
-- For sway (and sway-compatible wlroots compositors) consider using 'swaymsg'
-  or the Python package 'pywayland' + 'swayipc' (pip install swayipc).
-- For GNOME/KDE you may need compositor-specific DBus or protocols.
-
-Current implementation: placeholder that prints guidance.
-
-Usage:
-    python3 active_window_wayland.py
-
+# JavaScript to run inside GNOME Shell
+GET_ACTIVE_JS = """
+var win = global.display.get_focus_window();
+if (!win) null;
+else ({
+    title: win.get_title(),
+    pid: win.get_pid(),
+    wm_class: win.get_wm_class()
+});
 """
 
-import sys
-
-def get_active_window():
-    """
-    Placeholder function.
-
-    Replace this with an implementation that queries your compositor:
-    - For sway: use swayipc.SwayIPC().get_tree() and find focused node.
-    - For wlroots compositors: talk to the compositor's protocol or use
-      'pywlroots' if available.
-    - For GNOME/KDE: use desktop-specific APIs.
-    """
-    return None, "Not implemented: implement compositor-specific logic."
+def get_active_window(shell):
+    ok, result = shell.Eval(GET_ACTIVE_JS)
+    if not ok:
+        return None
+    try:
+        return json.loads(result)
+    except Exception:
+        return None
 
 def main():
-    window, msg = get_active_window()
-    if window is None:
-        print(msg, file=sys.stderr)
-        sys.exit(1)
-    print(window)
+    bus = SessionBus()
+    shell = bus.get("org.gnome.Shell")
+
+    last = None
+    print("Tracking active window on GNOME Wayland...")
+
+    while True:
+        current = get_active_window(shell)
+        if current != last:
+            print("Active window:", current)
+            last = current
+        time.sleep(0.2)
 
 if __name__ == "__main__":
     main()
